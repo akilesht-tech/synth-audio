@@ -524,80 +524,24 @@ body{touch-action:pan-y}
   .bottom{left:6px;right:6px}.miniart{width:42px;height:42px}.transport button{width:31px}.bigplay{width:38px!important;height:38px!important}
 }
 
-/* SYNTH AUDIO v22 — mobile reliability + visual polish */
-:root{--ease:cubic-bezier(.2,.75,.25,1)}
-html{scroll-behavior:smooth}
-body{font-family:"Avenir Next","Segoe UI Variable",Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.005em}
-button,input,select{font-family:inherit}
-button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.primary,.secondary,.tabs button,.rowbtn,.mnav,.transport button,.miniTools button{min-height:40px}
-.primary{position:relative;overflow:hidden}
-.primary:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.13) 50%,transparent 75%);transform:translateX(-120%);transition:transform .55s var(--ease)}
-.primary:hover:after{transform:translateX(120%)}
-.card,.smartcard,.songrow,.settings,.accountCard,.adminPanel,.uploadBox{will-change:transform}
-.card{animation:pageIn .42s var(--ease) both}
-#pageContent.routeSwap{animation:routeIn .32s var(--ease)}
-.loading{pointer-events:none;opacity:.72}
-.loading:before{content:"";width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
-@keyframes routeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:760px){
-  body{overscroll-behavior-y:auto}
-  .main{padding-bottom:154px}
-  .bottom{left:8px;right:8px;bottom:70px;height:68px;border:1px solid #303039;border-radius:16px;padding:7px 8px;gap:5px;background:rgba(23,23,28,.96);box-shadow:0 12px 35px rgba(0,0,0,.42);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:120}
-  .now{min-width:0;flex:1;gap:8px;overflow:hidden;min-height:54px}
-  .miniart{width:50px;height:50px;border-radius:8px}
-  .now .title{font-size:12px;font-weight:750}
-  .now .meta{font-size:10px}
-  .transport{flex:none;gap:1px}
-  .transport button{width:30px;height:34px;padding:0}
-  .transport button:nth-child(2),.transport button:nth-child(4){display:none}
-  .transport .bigplay{width:39px!important;height:39px!important}
-  .miniTools{flex:none;gap:0}
-  .miniTools button{width:31px;height:34px;padding:0}
-  .miniTools .miniOptional{display:none}
-  .miniTools button:nth-last-child(1){display:none}
-  .miniTools button svg{width:18px;height:18px}
-  .miniTools button:last-child{font-size:19px}
-  .mobileNav{height:70px;padding-bottom:max(8px,env(safe-area-inset-bottom));background:rgba(9,9,12,.98);z-index:130}
-  .mnav{min-width:54px;height:58px;border-radius:13px;gap:4px}
-  .mnav.active{background:#1a151f;color:#fff}
-  .mnav.active:after{bottom:2px;width:22px;height:3px}
-  .modal{z-index:300}
-  .modalbox{border-radius:20px 20px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.55)}
-  .modalbox>button:not(.primary):not(.modalClose){min-height:48px;font-size:14px}
-  .fullplayer{z-index:350;padding-bottom:max(24px,env(safe-area-inset-bottom))}
-  .fpcover{box-shadow:0 25px 75px rgba(0,0,0,.65)}
-  .fpcontrols button{min-height:46px}
-  .playlistname{min-width:0}
-  .activityItem{min-height:56px}
-}
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}}
-
-/* SYNTH AUDIO v23 — mobile player and interaction reliability */
-@media(max-width:760px){
-  .bottom{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto;grid-template-rows:48px 13px;align-items:center;gap:3px 5px;height:72px!important;padding:7px 8px!important;bottom:70px!important;}
-  .now{grid-column:1;grid-row:1;width:auto!important;min-width:0!important;height:48px!important;}
-  .transport{grid-column:2;grid-row:1;display:flex!important;align-items:center;justify-content:center;}
-  .transport button{display:none!important}
-  .transport .bigplay{display:grid!important;width:42px!important;height:42px!important;min-width:42px!important}
-  .miniTools{grid-column:3;grid-row:1;display:flex!important;align-items:center;gap:1px!important;visibility:visible!important;opacity:1!important}
-  .miniTools button{display:grid!important;width:38px!important;height:42px!important;min-width:38px!important;place-items:center;border-radius:11px}
-  .miniTools .miniOptional{display:none!important}
-  .miniTools button:nth-last-child(1){display:none!important}
-  .progress{grid-column:1/-1;grid-row:2;display:flex!important;min-width:0;width:100%;height:13px!important}
-  .progress input{flex:1;min-width:0}
-  .mobileNav{z-index:130!important}
-  .modal{z-index:500!important}
-  .modalbox{position:relative;z-index:501}
-  .actionBox>button{min-height:52px!important;display:flex;align-items:center;gap:12px;text-align:left}
-}
-
-/* Downloaded rows get an explicit offline affordance without relying on localStorage. */
-.offlineBadge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 6px;border-radius:999px;font-size:9px;font-weight:700;background:#1a332d;color:#76f0c7}
-@media(prefers-reduced-motion:no-preference){
-  .bottom{animation:playerIn .35s cubic-bezier(.2,.75,.25,1)}
-  .modalbox{animation:modalIn .24s cubic-bezier(.2,.75,.25,1)}
-}
-@keyframes playerIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+/* SYNTH AUDIO v25 — clean streaming redesign */
+:root{--ink:#f5f7fb;--muted:#9aa3b2;--panel:rgba(255,255,255,.055);--panel2:rgba(255,255,255,.085);--line:rgba(255,255,255,.09);--accent:#f5f7fb;--shadow:0 18px 60px rgba(0,0,0,.34)}
+*{box-sizing:border-box} body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:-.01em;background:#08090b;color:var(--ink)}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 15% 0%,rgba(255,255,255,.07),transparent 30%),radial-gradient(circle at 90% 100%,rgba(255,255,255,.045),transparent 32%);z-index:-1}
+button,input,select{font:inherit}.side{background:rgba(10,11,13,.9);border-right:1px solid var(--line);backdrop-filter:blur(22px)}
+.brand{gap:10px}.brand b{font-size:15px;letter-spacing:.08em}.logo{width:28px;height:28px;background:url('/logo.svg') center/contain no-repeat;filter:none}.nav{transition:transform .18s ease,background .18s ease}.nav:hover{transform:translateX(2px);background:rgba(255,255,255,.055)}.nav.active{background:#fff;color:#0a0b0d;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.main{background:transparent}.pageIntro{animation:pageIn .35s cubic-bezier(.2,.8,.2,1)}.card,.smartcard,.stat,.accountCard,.settings,.adminPanel,.uploadBox{border:1px solid var(--line);background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025));box-shadow:0 10px 35px rgba(0,0,0,.16)}
+.card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}.card:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:rgba(255,255,255,.16)}.cover{object-fit:cover}.coverWrap{overflow:hidden}.cardplay,.dots{backdrop-filter:blur(12px)}
+.primary{background:#f4f5f7;color:#0b0c0f;box-shadow:0 10px 25px rgba(0,0,0,.22);transition:transform .18s ease,box-shadow .18s ease}.primary:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(0,0,0,.3)}.secondary{background:rgba(255,255,255,.055);border:1px solid var(--line)}
+.songrow{transition:background .16s ease,transform .16s ease}.songrow:hover{background:rgba(255,255,255,.045);transform:translateX(2px)}.rowbtn{transition:transform .15s ease,background .15s ease}.rowbtn:hover{transform:scale(1.05);background:rgba(255,255,255,.09)}
+/* Welcome */
+.login{min-height:100dvh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 15%,rgba(255,255,255,.09),transparent 30%)}.loginbox{position:relative;overflow:hidden;border:1px solid var(--line);background:rgba(15,16,19,.86);box-shadow:0 30px 100px rgba(0,0,0,.5);backdrop-filter:blur(26px);animation:welcomeIn .65s cubic-bezier(.16,1,.3,1);text-align:left}.welcomeMark{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.1em;font-size:14px}.welcomeBars{height:30px;display:flex;align-items:center;gap:3px}.welcomeBars i{display:block;width:4px;border-radius:99px;background:#fff;animation:bar 1.1s ease-in-out infinite}.welcomeBars i:nth-child(1){height:11px}.welcomeBars i:nth-child(2){height:20px;animation-delay:.1s}.welcomeBars i:nth-child(3){height:29px;animation-delay:.2s}.welcomeBars i:nth-child(4){height:18px;animation-delay:.3s}.welcomeBars i:nth-child(5){height:9px;animation-delay:.4s}.authTabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;border:1px solid var(--line);border-radius:12px;margin:18px 0}.authTabs button{border:0;background:transparent;color:var(--muted);padding:10px;border-radius:8px;cursor:pointer}.authTabs button.active{background:#fff;color:#111}.authBtn{margin-top:4px}.loginHint{min-height:18px}
+/* Apple-like mini player */
+#player{position:relative;z-index:80}.bottom.appleMini{position:fixed;left:18px;right:18px;bottom:16px;min-height:76px;padding:9px 12px;display:grid;grid-template-columns:minmax(220px,1fr) auto minmax(220px,1fr);align-items:center;gap:14px;border:1px solid rgba(255,255,255,.13);border-radius:20px;background:rgba(20,21,24,.88);box-shadow:0 22px 70px rgba(0,0,0,.5);backdrop-filter:blur(24px);animation:playerIn .35s cubic-bezier(.2,.8,.2,1)}.miniNow{display:flex;align-items:center;gap:11px;min-width:0;cursor:pointer}.miniArtWrap{position:relative;flex:0 0 auto}.miniart{width:56px;height:56px;border-radius:11px;object-fit:cover;box-shadow:0 7px 20px rgba(0,0,0,.35)}.miniPulse{position:absolute;right:-3px;bottom:-3px;width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;gap:1.5px;background:#f4f5f7;border:2px solid #17181b}.miniPulse i{width:2px;height:7px;background:#111;border-radius:3px;animation:miniWave .7s ease-in-out infinite}.miniPulse i:nth-child(2){height:11px;animation-delay:.12s}.miniPulse i:nth-child(3){height:6px;animation-delay:.24s}.miniPulse.paused i{animation-play-state:paused}.transport{display:flex;align-items:center;justify-content:center;gap:2px}.transport button,.miniTools button{width:40px;height:40px;border:0;background:transparent;color:inherit;border-radius:50%;display:grid;place-items:center;cursor:pointer}.transport button:hover,.miniTools button:hover{background:rgba(255,255,255,.08)}.transport .bigplay{width:48px;height:48px;background:#fff;color:#111;box-shadow:0 8px 22px rgba(0,0,0,.25)}.progress{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted)}.progress input{flex:1;accent-color:#fff}.miniTools{display:flex;justify-content:flex-end;gap:2px}.appleMini .miniTools{grid-column:3;grid-row:1}.appleMini .progress{grid-row:2}.appleMini .transport{grid-column:2;grid-row:1}
+.fullplayer{animation:fullIn .28s cubic-bezier(.2,.8,.2,1);backdrop-filter:blur(24px)}
+.uploadProgress{display:flex;justify-content:space-between;font-size:12px;margin-top:10px}.progressBar{height:7px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:8px}.progressBar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .12s linear}
+.listeningHero{min-height:130px}.listeningHero b{font-size:34px}
+.playlistcover img{object-fit:cover;box-shadow:0 20px 50px rgba(0,0,0,.35)}.playlistSongs .songrow{border-radius:12px}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes welcomeIn{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}@keyframes playerIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}@keyframes fullIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:none}}@keyframes bar{0%,100%{transform:scaleY(.7);opacity:.55}50%{transform:scaleY(1);opacity:1}}@keyframes miniWave{0%,100%{transform:scaleY(.6)}50%{transform:scaleY(1.15)}}
+@media(max-width:900px){.bottom.appleMini{left:8px;right:8px;bottom:calc(72px + env(safe-area-inset-bottom));grid-template-columns:1fr auto;gap:6px;min-height:72px;padding:8px 9px;border-radius:17px}.appleMini .miniNow{grid-column:1}.appleMini .transport{grid-column:2;grid-row:1}.appleMini .transport button:nth-child(1),.appleMini .transport button:nth-child(2),.appleMini .transport button:nth-child(4),.appleMini .transport button:nth-child(5){display:none}.appleMini .miniTools{display:none}.appleMini .progress{grid-column:1/-1;grid-row:2}.miniart{width:50px;height:50px}.miniPulse{width:17px;height:17px}.transport .bigplay{width:45px;height:45px}.pageIntro h1{letter-spacing:-.035em}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}

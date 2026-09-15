@@ -1,27 +1,29 @@
 {
-  "main": "index.js",
-  "types": "electron.d.ts",
-  "bin": {
-    "electron": "cli.js"
-  },
+  "name": "synth-audio",
+  "version": "25.0.0",
+  "private": true,
   "scripts": {
-    "postinstall": "node install.js"
-  },
-  "dependencies": {
-    "@electron/get": "^2.0.0",
-    "@types/node": "^22.7.7",
-    "extract-zip": "^2.0.1"
+    "server": "node server.js",
+    "desktop": "electron .",
+    "desktop:dist": "electron-builder --win --x64",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:run": "npx cap run android",
+    "android:build": "cd android && gradlew assembleDebug",
+    "android:prepare": "node scripts/prepare-android-background.js"
   },
   "engines": {
-    "node": ">= 12.20.55"
+    "node": ">=18"
   },
-  "name": "electron",
-  "repository": "https://github.com/electron/electron",
-  "description": "Build cross platform desktop apps with JavaScript, HTML, and CSS",
-  "license": "MIT",
-  "author": "Electron Community",
-  "keywords": [
-    "electron"
-  ],
-  "version": "38.8.6"
+  "main": "electron/main.cjs",
+  "devDependencies": {
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@mediagrid/capacitor-native-audio": "^2.0.0"
+  }
 }

@@ -20,7 +20,8 @@ if(process.env.STORAGE_DIR){
   try{if(!fs.existsSync(DB)&&fs.existsSync(legacyDb))fs.copyFileSync(legacyDb,DB)}catch(e){console.error('Legacy database migration failed',e)}
   try{if(fs.existsSync(legacyUploads)){for(const f of fs.readdirSync(legacyUploads)){const src=path.join(legacyUploads,f),dst=path.join(UP,f);if(fs.statSync(src).isFile()&&!fs.existsSync(dst))fs.copyFileSync(src,dst)}}}catch(e){console.error('Legacy upload migration failed',e)}
 }
-let db={songs:[],playlists:[],events:[],listening:{}};
+let db={songs:[],playlists:[],events:[],listening:{},users:{},userState:{},sessions:{}};
+db.users=db.users||{};db.userState=db.userState||{};db.sessions=db.sessions||{};
 try{if(fs.existsSync(DB)) db=Object.assign(db,JSON.parse(fs.readFileSync(DB,'utf8')))}catch{}
 let saveTimer=null, saveQueued=false;
 function saveNow(){
@@ -130,6 +131,12 @@ function ownerIdentity(email,key){return String(email||'').trim().toLowerCase()=
 function parseMultipart(buf,ct){const m=/boundary=(?:"([^"]+)"|([^;]+))/i.exec(ct||'');if(!m)throw Error('Missing multipart boundary');const boundary=Buffer.from('--'+(m[1]||m[2]));let pos=0,parts=[];while(true){let s=buf.indexOf(boundary,pos);if(s<0)break;s+=boundary.length;if(buf[s]===45&&buf[s+1]===45)break;if(buf[s]===13&&buf[s+1]===10)s+=2;const e=buf.indexOf(Buffer.from('\r\n\r\n'),s);if(e<0)break;const headers=buf.slice(s,e).toString();const next=buf.indexOf(boundary,e+4);if(next<0)break;const data=buf.slice(e+4,next-2);const nm=/name="([^"]+)"/i.exec(headers),fm=/filename="([^"]*)"/i.exec(headers);if(nm)parts.push({name:nm[1],filename:fm?fm[1]:null,data});pos=next}return parts}
 function publicSong(s){const x={...s};delete x.fileSize;return x}
 function userEmail(reqUrl){return String(reqUrl.searchParams.get('userEmail')||'').trim().toLowerCase()}
+function hashPassword(password,salt=crypto.randomBytes(16).toString('hex')){const hash=crypto.pbkdf2Sync(String(password),salt,120000,32,'sha256').toString('hex');return `${salt}:${hash}`}
+function verifyPassword(password,stored){const [salt,hash]=String(stored||'').split(':');if(!salt||!hash)return false;const actual=crypto.pbkdf2Sync(String(password),salt,120000,32,'sha256').toString('hex');return safeEqual(actual,hash)}
+function makeSession(email){const token=crypto.randomBytes(32).toString('hex');db.sessions[token]={email,createdAt:Date.now()};save();return token}
+function sessionEmail(req){const h=String(req.headers.authorization||'');const m=/^Bearer\s+(.+)$/i.exec(h);if(!m)return '';const x=db.sessions[m[1]];return x?.email||''}
+function ensureUser(email){email=String(email||'').trim().toLowerCase();if(!email)return null;if(!db.users[email]){db.users[email]={email,createdAt:new Date().toISOString()};save()}return db.users[email]}
+
 
 function hydrateMissingArtwork(){
   let changed=false;
@@ -159,24 +166,48 @@ function createSongFromFile(filePath,originalName,meta={},fileSize=0){
 }
 async function handle(req,res){
  const u=new URL(req.url,'http://localhost'); const p=u.pathname;
+ if(req.method==='POST'&&p==='/api/auth/register'){
+   try{const b=await jsonBody(req),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');
+     if(!/^\S+@\S+\.\S+$/.test(email))return send(res,400,{error:'Enter a valid email address'});
+     if(password.length<6)return send(res,400,{error:'Password must be at least 6 characters'});
+     if(db.users[email])return send(res,409,{error:'An account with this email already exists'});
+     db.users[email]={email,passwordHash:hashPassword(password),createdAt:new Date().toISOString()};db.userState[email]=db.userState[email]||{favorites:[],recent:[]};
+     const token=makeSession(email);event('signup','Account created',email);return send(res,200,{ok:true,email,token});
+   }catch(e){return send(res,400,{error:e.message||'Registration failed'})}
+ }
+ if(req.method==='POST'&&p==='/api/auth/login'){
+   try{const b=await jsonBody(req),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');const u=db.users[email];
+     if(!u||!verifyPassword(password,u.passwordHash))return send(res,401,{error:'Incorrect email or password'});
+     const token=makeSession(email);return send(res,200,{ok:true,email,token});
+   }catch(e){return send(res,400,{error:'Login failed'})}
+ }
+ if(req.method==='POST'&&p==='/api/auth/logout'){const email=sessionEmail(req);const h=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');if(h)delete db.sessions[h];save();return send(res,200,{ok:true,email})}
+ if(req.method==='GET'&&p==='/api/auth/me'){const email=sessionEmail(req);return send(res,200,{authenticated:!!email,email:email||null})}
  if(req.method==='GET'&&p==='/api/config')return send(res,200,{ownerEmail:OWNER_EMAIL,ownerLoginEnabled:true});
  if(req.method==='GET'&&p==='/api/health')return send(res,200,{ok:true,time:new Date().toISOString(),songs:db.songs.length});
  if(req.method==='POST'&&p==='/api/admin/verify'){try{const b=await jsonBody(req);if(!ownerIdentity(b.email,b.key))return send(res,401,{error:'Owner authorization failed'});return send(res,200,{ok:true})}catch{return send(res,400,{error:'Invalid request'})}}
  if(req.method==='GET'&&p==='/api/events/stream'){res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','Access-Control-Allow-Origin':'*','X-Accel-Buffering':'no'});res.write('retry: 3000\n\n');sseClients.add(res);const ping=setInterval(()=>{try{res.write(': ping\n\n')}catch{}},20000);req.on('close',()=>{clearInterval(ping);sseClients.delete(res)});return}
 if(req.method==='GET'&&p==='/api/songs')return send(res,200,db.songs.map(publicSong));
- if(req.method==='GET'&&p==='/api/playlists'){const email=userEmail(u);const list=email?db.playlists.filter(x=>x.userEmail===email):[];return send(res,200,list)}
- if(req.method==='POST'&&p==='/api/playlists'){const b=await jsonBody(req),email=String(b.userEmail||'').trim().toLowerCase(),requestId=String(b.clientRequestId||'').trim();if(!email)return send(res,400,{error:'User email required'});if(requestId&&playlistRequestIds.has(requestId))return send(res,200,playlistRequestIds.get(requestId));if(requestId){const existing=db.playlists.find(x=>x.clientRequestId===requestId);if(existing){playlistRequestIds.set(requestId,existing);return send(res,200,existing)}}const name=String(b.name||'New Playlist').trim().slice(0,100)||'New Playlist';const duplicate=db.playlists.find(x=>x.userEmail===email&&String(x.name||'').trim().toLowerCase()===name.toLowerCase());if(duplicate){if(requestId)playlistRequestIds.set(requestId,duplicate);return send(res,200,duplicate)}const pl={id:crypto.randomUUID(),name,image:String(b.image||''),songIds:Array.isArray(b.songIds)?b.songIds:[],createdAt:new Date().toISOString(),userEmail:email,clientRequestId:requestId||undefined};db.playlists.push(pl);if(requestId)playlistRequestIds.set(requestId,pl);save();event('playlist_created',pl.name,email);broadcast('catalog',{kind:'playlist',userEmail:email});return send(res,200,pl)}
- if(req.method==='PUT'&&p.startsWith('/api/playlists/')){const id=p.split('/').pop(),b=await jsonBody(req),email=String(b.userEmail||'').trim().toLowerCase(),pl=db.playlists.find(x=>x.id===id&&x.userEmail===email);if(!pl)return send(res,404,{error:'Playlist not found'});if(b.name!==undefined)pl.name=String(b.name).trim().slice(0,100);if(b.image!==undefined)pl.image=String(b.image);if(Array.isArray(b.songIds))pl.songIds=b.songIds.filter(id=>db.songs.some(s=>s.id===id));save();broadcast('catalog',{kind:'playlist',userEmail:email,playlistId:pl.id});return send(res,200,pl)}
- if(req.method==='DELETE'&&p.startsWith('/api/playlists/')){const id=p.split('/').pop(),email=String(u.searchParams.get('userEmail')||'').trim().toLowerCase(),before=db.playlists.length;db.playlists=db.playlists.filter(x=>!(x.id===id&&x.userEmail===email));if(db.playlists.length===before)return send(res,404,{error:'Playlist not found'});event('playlist_deleted',id,email);broadcast('catalog',{kind:'playlist',userEmail:email,playlistId:id});return send(res,200,{ok:true})}
- if(req.method==='GET'&&p==='/api/user/stats'){const email=userEmail(u);if(!email)return send(res,400,{error:'User email required'});return send(res,200,{listeningSeconds:Number(db.listening[email]||0),events:db.events.filter(e=>e.userEmail===email).slice(0,100)})}
- if(req.method==='POST'&&p==='/api/listening'){const b=await jsonBody(req),email=String(b.userEmail||'').trim().toLowerCase();if(!email)return send(res,400,{error:'User email required'});const sec=Math.max(0,Math.min(30,Number(b.seconds)||0));if(!sec)return send(res,200,{ok:true,totalSeconds:Number(db.listening[email]||0)});db.listening[email]=(Number(db.listening[email]||0)+sec);if(b.songId)event('listening',`${b.songId} · ${Math.round(sec)} sec`,email);else save();return send(res,200,{ok:true,totalSeconds:db.listening[email]})}
+ if(req.method==='GET'&&p==='/api/playlists'){const email=sessionEmail(req)||userEmail(u);const list=email?db.playlists.filter(x=>x.userEmail===email):[];return send(res,200,list)}
+ if(req.method==='POST'&&p==='/api/playlists'){const b=await jsonBody(req),email=sessionEmail(req)||String(b.userEmail||'').trim().toLowerCase(),requestId=String(b.clientRequestId||'').trim();if(!email)return send(res,400,{error:'User email required'});if(requestId&&playlistRequestIds.has(requestId))return send(res,200,playlistRequestIds.get(requestId));if(requestId){const existing=db.playlists.find(x=>x.clientRequestId===requestId);if(existing){playlistRequestIds.set(requestId,existing);return send(res,200,existing)}}const name=String(b.name||'New Playlist').trim().slice(0,100)||'New Playlist';const duplicate=db.playlists.find(x=>x.userEmail===email&&String(x.name||'').trim().toLowerCase()===name.toLowerCase());if(duplicate){if(requestId)playlistRequestIds.set(requestId,duplicate);return send(res,200,duplicate)}const pl={id:crypto.randomUUID(),name,image:String(b.image||''),songIds:Array.isArray(b.songIds)?b.songIds:[],createdAt:new Date().toISOString(),userEmail:email,clientRequestId:requestId||undefined};db.playlists.push(pl);if(requestId)playlistRequestIds.set(requestId,pl);save();event('playlist_created',pl.name,email);broadcast('catalog',{kind:'playlist',userEmail:email});return send(res,200,pl)}
+ if(req.method==='PUT'&&p.startsWith('/api/playlists/')){const id=p.split('/').pop(),b=await jsonBody(req),email=sessionEmail(req)||String(b.userEmail||'').trim().toLowerCase(),pl=db.playlists.find(x=>x.id===id&&x.userEmail===email);if(!pl)return send(res,404,{error:'Playlist not found'});if(b.name!==undefined)pl.name=String(b.name).trim().slice(0,100);if(b.image!==undefined)pl.image=String(b.image);if(Array.isArray(b.songIds))pl.songIds=b.songIds.filter(id=>db.songs.some(s=>s.id===id));save();broadcast('catalog',{kind:'playlist',userEmail:email,playlistId:pl.id});return send(res,200,pl)}
+ if(req.method==='DELETE'&&p.startsWith('/api/playlists/')){const id=p.split('/').pop(),email=sessionEmail(req)||String(u.searchParams.get('userEmail')||'').trim().toLowerCase(),before=db.playlists.length;db.playlists=db.playlists.filter(x=>!(x.id===id&&x.userEmail===email));if(db.playlists.length===before)return send(res,404,{error:'Playlist not found'});event('playlist_deleted',id,email);broadcast('catalog',{kind:'playlist',userEmail:email,playlistId:id});return send(res,200,{ok:true})}
+ if(req.method==='GET'&&p==='/api/user/state'){
+   const email=sessionEmail(req)||userEmail(u);if(!email)return send(res,401,{error:'Sign in required'});const st=db.userState[email]||{favorites:[],recent:[]};return send(res,200,{favorites:Array.isArray(st.favorites)?st.favorites:[],recent:Array.isArray(st.recent)?st.recent:[]});
+ }
+ if(req.method==='PUT'&&p==='/api/user/state'){
+   const b=await jsonBody(req),email=sessionEmail(req)||String(b.userEmail||'').trim().toLowerCase();if(!email)return send(res,401,{error:'Sign in required'});
+   db.userState[email]={favorites:Array.isArray(b.favorites)?b.favorites.slice(0,500):[],recent:Array.isArray(b.recent)?b.recent.slice(0,100):[]};save();broadcast('user_state',{userEmail:email});return send(res,200,{ok:true});
+ }
+ if(req.method==='GET'&&p==='/api/user/stats'){const email=sessionEmail(req)||userEmail(u);if(email)ensureUser(email);if(!email)return send(res,400,{error:'User email required'});return send(res,200,{listeningSeconds:Number(db.listening[email]||0),events:db.events.filter(e=>e.userEmail===email).slice(0,100)})}
+ if(req.method==='POST'&&p==='/api/listening'){const b=await jsonBody(req),email=sessionEmail(req)||String(b.userEmail||'').trim().toLowerCase();if(email)ensureUser(email);if(!email)return send(res,400,{error:'User email required'});const sec=Math.max(0,Math.min(30,Number(b.seconds)||0));if(!sec)return send(res,200,{ok:true,totalSeconds:Number(db.listening[email]||0)});db.listening[email]=(Number(db.listening[email]||0)+sec);if(b.songId)event('listening',`${b.songId} · ${Math.round(sec)} sec`,email);else save();return send(res,200,{ok:true,totalSeconds:db.listening[email]})}
  if(req.method==='POST'&&p==='/api/events'){const b=await jsonBody(req),email=String(b.userEmail||'').trim().toLowerCase();if(b.songId&&b.type==='play'){const s=db.songs.find(x=>x.id===b.songId);if(s)s.plays=(s.plays||0)+1}event(b.type||'activity',b.detail||b.songId||'',email);return send(res,200,{ok:true})}
  if(p.startsWith('/api/admin')){
    if(!adminAuth(req))return send(res,401,{error:'Owner authorization required'});
    if(req.method==='GET'&&p==='/api/admin/stats'){
      let bytes=0;for(const s of db.songs)bytes+=Number(s.fileSize||0);
      const listening=Object.values(db.listening).reduce((a,b)=>a+Number(b||0),0);
-     return send(res,200,{songs:db.songs.length,storageBytes:bytes,genres:[...new Set(db.songs.map(s=>s.genre).filter(Boolean))],languages:[...new Set(db.songs.map(s=>s.language).filter(Boolean))],events:db.events.slice(0,100),topPlayed:[...db.songs].sort((a,b)=>(b.plays||0)-(a.plays||0)).slice(0,10).map(publicSong),listeningSeconds:listening,users:Object.keys(db.listening).length});
+     return send(res,200,{songs:db.songs.length,storageBytes:bytes,genres:[...new Set(db.songs.map(s=>s.genre).filter(Boolean))],languages:[...new Set(db.songs.map(s=>s.language).filter(Boolean))],events:db.events.slice(0,100),topPlayed:[...db.songs].sort((a,b)=>(b.plays||0)-(a.plays||0)).slice(0,10).map(publicSong),listeningSeconds:listening,users:Object.keys(db.users||{}).length});
    }
    if(req.method==='POST'&&p==='/api/admin/upload-stream'){
      try{
